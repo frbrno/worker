@@ -43,6 +43,7 @@ type Master struct {
 	is_active bool
 }
 
+// Cancel, stops the goroutine started by RunAsync and all its Slaves
 func (m *Master) Cancel() {
 	<-m.sig_mu
 	defer func() { m.sig_mu <- struct{}{} }()

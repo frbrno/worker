@@ -34,6 +34,7 @@ func (sc *slave_ctx) SigCancel() chan struct{} {
 	return sc.sig_cancel
 }
 
+// Cancel, stops the goroutine started by RunAsync
 func (s *Slave) Cancel() {
 	<-s.m.sig_mu
 	defer func() { s.m.sig_mu <- struct{}{} }()
@@ -42,18 +43,11 @@ func (s *Slave) Cancel() {
 	if s.is_active {
 		close(s.sig_cancel)
 	}
+	s.is_active = false
 
 	s.m.Unlock()
 
 	s.wg.Wait()
-
-	s.m.Lock()
-	s.m.errs = append(s.m.errs, ErrCancel)
-	s.m.is_active = false
-	for _, s := range s.m.slaves {
-		s.is_active = false
-	}
-	s.m.Unlock()
 }
 
 func (s *Slave) RunAsync(fn func(SlaveCtx) error) chan error {
