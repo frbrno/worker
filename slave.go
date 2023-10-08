@@ -66,7 +66,7 @@ func (s *Slave) RunAsync(fn func(SlaveCtx) error) chan error {
 	}
 
 	if !s.m.is_active {
-		sig_done <- ErrCancel
+		sig_done <- ErrMasterNotActive
 		s.m.Unlock()
 		return sig_done
 	}
