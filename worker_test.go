@@ -17,12 +17,14 @@ type TaskSlave struct {
 	Slave
 }
 
+// go test -race -v -run TestMasterCancel
 func TestMasterCancel(t *testing.T) {
 
 	//basic test
 	{
 		master := NewMaster()
 		slave0 := NewSlave(master)
+		slave1 := NewSlave(master)
 
 		sig_done_master := master.RunAsync(func(mc MasterCtx) error {
 			select {
@@ -38,10 +40,17 @@ func TestMasterCancel(t *testing.T) {
 			}
 		})
 
+		sig_done_slave1 := slave1.RunAsync(func(sc SlaveCtx) error {
+			select {
+			case <-sc.SigCancel():
+				return ErrCancel
+			}
+		})
+
 		master.Cancel()
 
 		timout := time.NewTimer(time.Second * 2)
-		for i, sig_done := range []chan error{sig_done_slave0, sig_done_master} {
+		for i, sig_done := range []chan error{sig_done_slave0, sig_done_master, sig_done_slave1} {
 			select {
 			case <-sig_done:
 				t.Logf("close %v", i)
@@ -88,6 +97,80 @@ func TestMasterCancel(t *testing.T) {
 			t.Logf("close")
 		case <-timeout.C:
 			t.Fatal(fmt.Errorf("close channel does not shutdown workers"))
+		}
+	}
+
+	//basic test run multiple slaves
+	{
+		master := NewMaster()
+		slave0 := NewSlave(master)
+		slave1 := NewSlave(master)
+		slave2 := NewSlave(master)
+		slave3 := NewSlave(master)
+		slave4 := NewSlave(master)
+
+		sig_done_master := master.RunAsync(func(mc MasterCtx) error {
+			select {
+			case <-mc.SigCancel():
+				return ErrCancel
+			}
+		})
+
+		sig_done_slave0 := slave0.RunAsync(func(sc SlaveCtx) error {
+			select {
+			case <-sc.SigCancel():
+				return ErrCancel
+			}
+		})
+
+		err_random := fmt.Errorf("random error")
+
+		sig_done_slave1 := slave1.RunAsync(func(sc SlaveCtx) error {
+			return err_random
+		})
+
+		sig_done_slave2 := slave2.RunAsync(func(sc SlaveCtx) error {
+			return nil // success
+		})
+
+		sig_done_slave3 := slave3.RunAsync(func(sc SlaveCtx) error {
+			time.Sleep(time.Second * 2)
+			return nil // success
+		})
+
+		sig_done_slave4 := slave4.RunAsync(func(sc SlaveCtx) error {
+			select {
+			case <-sc.SigCancel():
+				time.Sleep(time.Second * 2)
+				return nil //still success after rx cancel
+			}
+		})
+
+		master.Cancel()
+
+		for i, sig_done := range []chan error{sig_done_slave0, sig_done_slave1, sig_done_slave2, sig_done_slave3, sig_done_slave4, sig_done_master} {
+			timeout := time.NewTimer(time.Second * 4)
+
+			select {
+			case err := <-sig_done:
+				switch i {
+				case 0:
+					if err != ErrCancel {
+						t.Fatalf("%v expected error ErrCancel", i)
+					}
+				case 1:
+					if err != err_random {
+						t.Fatalf("%v expected error ErrRandom", i)
+					}
+				case 2, 3, 4:
+					if err != nil {
+						t.Fatalf("%v expected error nil", i)
+					}
+				}
+			case <-timeout.C:
+				t.Fatalf("workers dont stop, %v", i)
+			}
+
 		}
 	}
 }
