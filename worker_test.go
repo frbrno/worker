@@ -21,9 +21,7 @@ func TestMasterCancel(t *testing.T) {
 
 	//basic test
 	{
-		sig_cancel := make(chan struct{})
-
-		master := NewMaster(sig_cancel)
+		master := NewMaster()
 		slave0 := NewSlave(master)
 
 		sig_done_master := master.RunAsync(func(mc MasterCtx) error {
@@ -55,9 +53,7 @@ func TestMasterCancel(t *testing.T) {
 
 	//basic test close slave before master
 	{
-		sig_cancel := make(chan struct{})
-
-		master := NewMaster(sig_cancel)
+		master := NewMaster()
 		slave0 := NewSlave(master)
 
 		sig_done_master := master.RunAsync(func(mc MasterCtx) error {
@@ -79,7 +75,7 @@ func TestMasterCancel(t *testing.T) {
 		timeout := time.NewTimer(time.Second * 2)
 		select {
 		case <-sig_done_slave0:
-			t.Logf("close %v")
+			t.Logf("close")
 		case <-timeout.C:
 			t.Fatal(fmt.Errorf("close channel does not shutdown workers"))
 		}
@@ -89,7 +85,7 @@ func TestMasterCancel(t *testing.T) {
 		timeout = time.NewTimer(time.Second * 2)
 		select {
 		case <-sig_done_master:
-			t.Logf("close %v")
+			t.Logf("close")
 		case <-timeout.C:
 			t.Fatal(fmt.Errorf("close channel does not shutdown workers"))
 		}
@@ -97,10 +93,8 @@ func TestMasterCancel(t *testing.T) {
 }
 
 func TestWorkerA(t *testing.T) {
-	sig_cancel := make(chan struct{})
-
 	m := new(TaskMaster)
-	m.Master = NewMaster(sig_cancel)
+	m.Master = NewMaster()
 
 	s1 := NewSlave(m.Master)
 	s2 := NewSlave(m.Master)

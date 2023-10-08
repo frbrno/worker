@@ -2,16 +2,15 @@ package worker
 
 import "sync"
 
-func NewMaster(sig_cancel chan struct{}) *Master {
+func NewMaster() *Master {
 	m := &Master{
-		RWMutex:          &sync.RWMutex{},
-		wg:               &sync.WaitGroup{},
-		sig_cancel_outer: sig_cancel,
-		sig_cancel:       make(chan struct{}),
-		errs:             []error{},
-		slaves:           make([]*Slave, 0),
-		mu_slaves:        &sync.RWMutex{},
-		sig_mu:           make(chan struct{}, 1),
+		RWMutex:    &sync.RWMutex{},
+		wg:         &sync.WaitGroup{},
+		sig_cancel: make(chan struct{}),
+		errs:       []error{},
+		slaves:     make([]*Slave, 0),
+		mu_slaves:  &sync.RWMutex{},
+		sig_mu:     make(chan struct{}, 1),
 	}
 	m.sig_mu <- struct{}{}
 
@@ -28,22 +27,16 @@ type master_ctx struct {
 }
 
 func (mc *master_ctx) SigCancel() chan struct{} {
-	select {
-	case <-mc.m.sig_cancel_outer:
-		return mc.m.sig_cancel_outer
-	default:
-		return mc.sig_cancel
-	}
+	return mc.sig_cancel
 }
 
 type Master struct {
 	*sync.RWMutex
-	wg               *sync.WaitGroup
-	sig_cancel_outer chan struct{}
-	sig_cancel       chan struct{}
-	errs             []error
-	slaves           []*Slave
-	mu_slaves        *sync.RWMutex
+	wg         *sync.WaitGroup
+	sig_cancel chan struct{}
+	errs       []error
+	slaves     []*Slave
+	mu_slaves  *sync.RWMutex
 
 	sig_mu chan struct{}
 

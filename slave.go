@@ -31,12 +31,7 @@ type slave_ctx struct {
 }
 
 func (sc *slave_ctx) SigCancel() chan struct{} {
-	select {
-	case <-sc.s.m.sig_cancel_outer:
-		return sc.s.m.sig_cancel_outer
-	default:
-		return sc.sig_cancel
-	}
+	return sc.sig_cancel
 }
 
 func (s *Slave) Cancel() {
