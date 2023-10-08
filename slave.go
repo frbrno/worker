@@ -9,7 +9,9 @@ func NewSlave(m *Master) *Slave {
 		sig_cancel: make(chan struct{}),
 		is_active:  false,
 	}
+	m.Lock()
 	m.slaves = append(m.slaves, s)
+	m.Unlock()
 	return s
 }
 
