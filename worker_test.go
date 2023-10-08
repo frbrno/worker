@@ -100,6 +100,28 @@ func TestMasterCancel(t *testing.T) {
 		}
 	}
 
+	//basic run slave of closed master
+	{
+		master := NewMaster()
+		slave0 := NewSlave(master)
+
+		sig_done_slave0 := slave0.RunAsync(func(sc SlaveCtx) error {
+			select {
+			case <-sc.SigCancel():
+				return ErrCancel
+			}
+		})
+
+		select {
+		case <-time.After(time.Second):
+			t.Fatal("expected sig_done rx")
+		case err := <-sig_done_slave0:
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		}
+	}
+
 	//basic test run multiple slaves
 	{
 		master := NewMaster()
