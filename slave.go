@@ -9,9 +9,9 @@ func NewSlave(m *Master) *Slave {
 		sig_cancel: make(chan struct{}),
 		is_active:  false,
 	}
-	m.Lock()
+	m.mu.Lock()
 	m.slaves = append(m.slaves, s)
-	m.Unlock()
+	m.mu.Unlock()
 	return s
 }
 
@@ -41,13 +41,13 @@ func (s *Slave) Cancel() {
 	<-s.m.sig_mu
 	defer func() { s.m.sig_mu <- struct{}{} }()
 
-	s.m.Lock()
+	s.m.mu.Lock()
 	if s.is_active {
 		close(s.sig_cancel)
 	}
 	s.is_active = false
 
-	s.m.Unlock()
+	s.m.mu.Unlock()
 
 	s.wg.Wait()
 }
@@ -58,16 +58,16 @@ func (s *Slave) RunAsync(fn func(SlaveCtx) error) chan error {
 
 	sig_done := make(chan error, 1)
 
-	s.m.Lock()
+	s.m.mu.Lock()
 	if len(s.m.errs) > 0 {
 		sig_done <- s.m.errs[0]
-		s.m.Unlock()
+		s.m.mu.Unlock()
 		return sig_done
 	}
 
 	if !s.m.is_active {
 		sig_done <- ErrMasterNotActive
-		s.m.Unlock()
+		s.m.mu.Unlock()
 		return sig_done
 	}
 
@@ -76,7 +76,7 @@ func (s *Slave) RunAsync(fn func(SlaveCtx) error) chan error {
 	}
 	s.is_active = true
 
-	s.m.Unlock()
+	s.m.mu.Unlock()
 
 	s.wg.Wait()
 
@@ -101,9 +101,9 @@ func (s *Slave) RunAsync(fn func(SlaveCtx) error) chan error {
 		select {
 		case <-s.m.sig_mu:
 			defer func() { s.m.sig_mu <- struct{}{} }()
-			s.m.Lock()
+			s.m.mu.Lock()
 			s.is_active = false
-			s.m.Unlock()
+			s.m.mu.Unlock()
 		case <-sig_cancel:
 			// next RunAsync call holds lock and wants cancel current goroutine
 		}

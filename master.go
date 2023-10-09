@@ -4,7 +4,7 @@ import "sync"
 
 func NewMaster() *Master {
 	m := &Master{
-		RWMutex:    &sync.RWMutex{},
+		mu:         &sync.RWMutex{},
 		wg:         &sync.WaitGroup{},
 		sig_cancel: make(chan struct{}),
 		errs:       []error{},
@@ -31,7 +31,7 @@ func (mc *master_ctx) SigCancel() chan struct{} {
 }
 
 type Master struct {
-	*sync.RWMutex
+	mu         *sync.RWMutex
 	wg         *sync.WaitGroup
 	sig_cancel chan struct{}
 	errs       []error
@@ -48,7 +48,7 @@ func (m *Master) Cancel() {
 	<-m.sig_mu
 	defer func() { m.sig_mu <- struct{}{} }()
 
-	m.Lock()
+	m.mu.Lock()
 	if m.is_active {
 		close(m.sig_cancel)
 	}
@@ -57,17 +57,17 @@ func (m *Master) Cancel() {
 			close(s.sig_cancel)
 		}
 	}
-	m.Unlock()
+	m.mu.Unlock()
 
 	m.wg.Wait()
 
-	m.Lock()
+	m.mu.Lock()
 	m.errs = append(m.errs, ErrCancel)
 	m.is_active = false
 	for _, s := range m.slaves {
 		s.is_active = false
 	}
-	m.Unlock()
+	m.mu.Unlock()
 }
 
 func (m *Master) RunAsync(fn func(MasterCtx) error) chan error {
@@ -76,10 +76,10 @@ func (m *Master) RunAsync(fn func(MasterCtx) error) chan error {
 
 	sig_done := make(chan error, 1)
 
-	m.Lock()
+	m.mu.Lock()
 	if len(m.errs) > 0 {
 		sig_done <- m.errs[0]
-		m.Unlock()
+		m.mu.Unlock()
 		return sig_done
 	}
 
@@ -95,7 +95,7 @@ func (m *Master) RunAsync(fn func(MasterCtx) error) chan error {
 			s.is_active = false
 		}
 	}
-	m.Unlock()
+	m.mu.Unlock()
 
 	m.wg.Wait()
 
@@ -118,9 +118,9 @@ func (m *Master) RunAsync(fn func(MasterCtx) error) chan error {
 		select {
 		case <-m.sig_mu:
 			defer func() { m.sig_mu <- struct{}{} }()
-			m.Lock()
+			m.mu.Lock()
 			m.is_active = false
-			m.Unlock()
+			m.mu.Unlock()
 		case <-sig_cancel:
 			// next RunAsync call holds lock and wants cancel current goroutine
 		}
