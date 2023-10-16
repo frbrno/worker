@@ -91,7 +91,7 @@ func (w *W) Run(ctx context.Context, task Task) SigDone {
 		err := task(ctx)
 
 		select {
-		case <-w.p.sig_mu: //get the lock if no one else holds it
+		case <-w.p.sig_mu: //try get the lock if no one else holds it
 			defer func() { w.p.sig_mu <- struct{}{} }()
 		default:
 		}

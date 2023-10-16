@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func NewPool() *Pool {
+func NewPool() (*Pool, SigDone) {
 	p := &Pool{
 		mu:       &sync.RWMutex{},
 		wg:       &sync.WaitGroup{},
@@ -15,7 +15,7 @@ func NewPool() *Pool {
 		sig_mu:   make(chan struct{}, 1),
 	}
 	p.sig_mu <- struct{}{}
-	return p
+	return p, p.sig_done
 }
 
 type Pool struct {
@@ -32,10 +32,6 @@ func (p *Pool) handle_err(err error) {
 	if err != nil && errors.Is(err, ErrFatal) {
 		p.shutdown(err)
 	}
-}
-
-func (p *Pool) SigDone() SigDone {
-	return p.sig_done
 }
 
 func (p *Pool) shutdown(err error) {

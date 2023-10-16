@@ -8,7 +8,7 @@ import (
 )
 
 func TestPool(t *testing.T) {
-	p := NewPool()
+	p, sig_pool_done := NewPool()
 
 	w1 := NewWorker(p)
 	w2 := NewWorker(p)
@@ -36,7 +36,7 @@ func TestPool(t *testing.T) {
 		p.Shutdown()
 	}()
 
-	err := <-p.SigDone()
+	err := <-sig_pool_done
 	if err != nil {
 		t.Logf("bye err: %s", err.Error())
 	}
