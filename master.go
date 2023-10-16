@@ -70,6 +70,16 @@ func (m *Master) Cancel() {
 	m.mu.Unlock()
 }
 
+func (m *Master) removeSlave(slave *Slave) {
+	for i, s := range m.slaves {
+		if s == slave {
+			m.slaves[i] = m.slaves[len(m.slaves)-1]
+			m.slaves[len(m.slaves)-1] = nil
+			m.slaves = m.slaves[:len(m.slaves)-1]
+		}
+	}
+}
+
 func (m *Master) RunAsync(fn func(MasterCtx) error) chan error {
 	<-m.sig_mu
 	defer func() { m.sig_mu <- struct{}{} }()

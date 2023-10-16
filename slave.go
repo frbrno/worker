@@ -2,12 +2,13 @@ package worker
 
 import "sync"
 
-func NewSlave(m *Master) *Slave {
+func NewSlave(m *Master, once bool) *Slave {
 	s := &Slave{
 		m:          m,
 		wg:         &sync.WaitGroup{},
 		sig_cancel: make(chan struct{}),
 		is_active:  false,
+		once:       once,
 	}
 	m.mu.Lock()
 	m.slaves = append(m.slaves, s)
@@ -19,6 +20,7 @@ type Slave struct {
 	m          *Master
 	wg         *sync.WaitGroup
 	sig_cancel chan struct{}
+	once       bool
 
 	is_active bool
 }
@@ -46,6 +48,10 @@ func (s *Slave) Cancel() {
 		close(s.sig_cancel)
 	}
 	s.is_active = false
+
+	if s.once {
+		s.m.removeSlave(s)
+	}
 
 	s.m.mu.Unlock()
 
@@ -103,6 +109,9 @@ func (s *Slave) RunAsync(fn func(SlaveCtx) error) chan error {
 			defer func() { s.m.sig_mu <- struct{}{} }()
 			s.m.mu.Lock()
 			s.is_active = false
+			if s.once {
+				s.m.removeSlave(s)
+			}
 			s.m.mu.Unlock()
 		case <-sig_cancel:
 			// next RunAsync call holds lock and wants cancel current goroutine
